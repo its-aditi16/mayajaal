@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     # The app being protected: a factory taking optional settings, and its normal traffic.
     target_app: str = "mayajaal.demo.app:create_app"
     target_golden: str = "mayajaal.demo.golden:GOLDEN"
+    # Website-specific decoys from `mayajaal suggest-traps`, after a person has reviewed them.
+    decoys_file: str = ""
     control_host: str = "127.0.0.1"
     control_port: int = 8100
 

@@ -7,6 +7,7 @@ Mayajaal needs two things from an app:
 Run it:
   $env:MAYAJAAL_TARGET_APP = "app:create_app"
   $env:MAYAJAAL_TARGET_GOLDEN = "golden.json"
+  $env:MAYAJAAL_DECOYS_FILE = "decoys.json"     # Bait suggested by `mayajaal suggest-traps`, then reviewed.
   uvicorn --factory app:create_app --port 8000    # In this folder.
   mayajaal worker                                 # In this folder, in a second terminal.
   mayajaal dashboard                              # In a third.

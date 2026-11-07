@@ -5,7 +5,7 @@ __version__ = "0.1.0"
 
 
 def protect(app, route_tags: dict[str, str] | None = None, extra_trap_paths: dict[str, str] | None = None,
-            settings=None):
+            settings=None, decoys=None):
     """Add Mayajaal to a FastAPI app: traps, activity log and enforcement of approved blocks.
 
     route_tags says which of your routes matter, for example
@@ -19,4 +19,4 @@ def protect(app, route_tags: dict[str, str] | None = None, extra_trap_paths: dic
 
     settings = settings or Settings()
     store = Store(settings.db_path)
-    return install(app, settings, store, Bus(settings, store), route_tags, extra_trap_paths)
+    return install(app, settings, store, Bus(settings, store), route_tags, extra_trap_paths, decoys)

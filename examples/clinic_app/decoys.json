@@ -1,0 +1,27 @@
+[
+  {
+    "path": "/patients/export/all-data",
+    "kind": "data",
+    "reason": "appears to be a bulk export of all patient records"
+  },
+  {
+    "path": "/doctors/credentials",
+    "kind": "secret",
+    "reason": "suggests a dump of doctor login credentials"
+  },
+  {
+    "path": "/patients/archive/2025.sql",
+    "kind": "secret",
+    "reason": "looks like a backup archive of the patient database"
+  },
+  {
+    "path": "/patients/metadata/schema",
+    "kind": "data",
+    "reason": "implies access to the patient data schema"
+  },
+  {
+    "path": "/doctors/schedule/hidden",
+    "kind": "page",
+    "reason": "seems to be an internal doctor scheduling page"
+  }
+]

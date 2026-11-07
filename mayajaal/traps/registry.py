@@ -21,6 +21,7 @@ TRAPS: tuple[Trap, ...] = (
     Trap("canary_record", 4, "data", "Fake customer record inside the real database"),
     Trap("vault_decoy", 5, "vault", "Fake key in the key vault", "/api/vault/keys/payments-master"),
     Trap("mcp_decoy", 6, "ai_tool", "Decoy tool inside the company AI assistant"),
+    Trap("site_decoy", 7, "site", "Decoy made to fit this website, approved by a person"),
 )
 
 BY_ID = {t.id: t for t in TRAPS}

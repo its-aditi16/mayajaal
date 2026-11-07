@@ -134,6 +134,13 @@ $env:MAYAJAAL_TARGET_GOLDEN = "golden.json"
 mayajaal worker
 ```
 
+**4. Add bait that fits your site.** Mayajaal reads your routes and suggests decoys named like the rest of your app. Groq writes the ideas if you have a key, and simple rules do it if not. Code then drops any decoy a real user could hit, such as one a `/users/{name}` route would also answer. Nothing goes live until you review the file and deploy it:
+
+```powershell
+mayajaal suggest-traps --app myapp.main:create_app --out decoys.json
+$env:MAYAJAAL_DECOYS_FILE = "decoys.json"
+```
+
 The web traps work straight away. Add `Disallow: /internal/admin-console` to your `robots.txt` to lead attackers to the hidden admin page. For fake records in your own database, return `shield.dye(request, "canary_record")` as the value of a bait field. Decoy AI tools run with `mayajaal mcp-decoys`. [examples/clinic_app](examples/clinic_app/) is a complete second example.
 
 ## Running the full stack
@@ -175,7 +182,8 @@ If Hindsight's log says `lock file "/tmp/.s.PGSQL.5432.lock" already exists`, it
 ## Known limits
 
 - **An attacker that avoids every trap is not caught.** Detection starts when a trap fires. Exporting data without ever using the stolen key fires nothing.
-- **Traps are the same on every site.** Reflect suggests placements, but a person sets them up.
+- **Built-in traps are the same on every site.** `mayajaal suggest-traps` adds decoys fitted to each app, but a person reviews and deploys them.
+- **Catching attackers without traps is not attempted yet.** Behaviour alone also flags fast, legitimate scripts, so it needs real traffic to tune before it can avoid false alarms.
 - **AI text can be wrong.** A local model once claimed no data was stolen, and reflect has misdescribed what a fix did. Verified facts always come first, and AI text is labelled.
 - **`ai_agent` means "autonomous, probably AI".** Behaviour shows a machine is driving. Telling an LLM from a plain script relies on softer signs, and the labels are tuned on simulated traffic.
 - **The demo attacker is a script** that imitates published AI attacker behaviour. It is not a real autonomous agent, and false alarm rates have not been measured on real traffic.
@@ -190,7 +198,7 @@ If Hindsight's log says `lock file "/tmp/.s.PGSQL.5432.lock" already exists`, it
 ```
 mayajaal/
   shield.py        Runs inside the app: traps, activity log, block enforcement. No AI.
-  traps/           Signed honeytokens, the trap catalogue, decoy MCP tools
+  traps/           Signed honeytokens, the trap catalogue, decoy MCP tools, website-specific bait
   detect.py        Human or AI labelling, and behaviour signatures
   rewind.py        Finds everything an attacker touched
   safety.py        Prompt screening

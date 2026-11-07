@@ -232,10 +232,18 @@ def decoy_router(shield: Shield) -> APIRouter:
 
 
 def install(app: FastAPI, settings: Settings, store: Store, bus: Bus, route_tags: dict[str, str] | None = None,
-            extra_trap_paths: dict[str, str] | None = None) -> Shield:
+            extra_trap_paths: dict[str, str] | None = None, decoys: list | None = None) -> Shield:
+    from .traps import site_bait
+
+    if decoys is None and settings.decoys_file:
+        decoys = site_bait.load(settings.decoys_file)
+    decoys = decoys or []
     shield = Shield(settings, store, bus, route_tags,
-                    {"/api/vault/keys": "vault_decoy", **(extra_trap_paths or {})})
+                    {"/api/vault/keys": "vault_decoy", **{d.path: "site_decoy" for d in decoys},
+                     **(extra_trap_paths or {})})
     app.add_middleware(ShieldMiddleware, shield=shield)
     app.include_router(decoy_router(shield))
+    if decoys:
+        app.include_router(site_bait.router(shield, decoys))
     app.state.shield = shield
     return shield

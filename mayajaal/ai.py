@@ -38,6 +38,17 @@ normal_traffic_must_keep_working lists real requests: no rule may match any of t
 Your rules will be tested against normal user traffic and rejected if they block anyone legitimate."""
 
 
+SUGGEST_INSTRUCTIONS = """You design deception for one specific web application.
+You receive the list of its real routes. Propose 3 to 6 decoy URLs that an AI attacker exploring THIS app would
+find tempting, named so they clearly belong to this app, which no real page links to and no real user would visit.
+Return JSON only: {"decoys": [{"path": "/...", "kind": "data|secret|page", "reason": "short reason"}]}
+Every path MUST reuse a word from the app's own routes, so it looks like part of this app. Generic paths such as
+/admin, /config or /debug are rejected. For an app with /patients, good: /patients-archive/export-all,
+/internal/patients-records-admin, /backup/patients-2025.sql.
+Rules: lowercase letters, digits, dashes, dots and slashes only. No {parameters}. Never reuse an existing path,
+and never put a decoy where an existing route with a {parameter} would also answer it."""
+
+
 class _DraftRule(BaseModel):
     kind: str
     title: str = Field(max_length=200)
@@ -158,6 +169,17 @@ class DefenderAI:
         raw = self._run(EXPLAIN_INSTRUCTIONS, facts)
         text = clean_prose(raw) if raw else ""
         return text or None
+
+    def suggest_decoys(self, facts: dict) -> dict | None:
+        raw = self._run(SUGGEST_INSTRUCTIONS, facts)
+        if not raw:
+            return None
+        text = _strip_thinking(raw)
+        start, end = text.find("{"), text.rfind("}")
+        try:
+            return json.loads(text[start:end + 1]) if start >= 0 < end else None
+        except ValueError:
+            return None
 
     def draft_rules(self, facts: dict) -> tuple[str, list[Rule]] | None:
         raw = self._run(DRAFT_INSTRUCTIONS, facts)
