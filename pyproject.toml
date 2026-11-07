@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mayajaal"
+version = "0.1.0"
+description = "A honeypot with memory: a deception layer that catches AI hacking agents inside your web app."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+]
+
+[project.optional-dependencies]
+memory = ["hindsight-client>=1.2,<2"]
+ai = ["agent-framework-core>=1.0", "agent-framework-openai>=1.0"]
+redis = ["redis>=5.0"]
+mcp = ["mcp>=2.0,<3"]
+dashboard = ["streamlit>=1.40", "pandas>=2.2"]
+all = ["mayajaal[memory,ai,redis,mcp,dashboard]"]
+
+[project.scripts]
+mayajaal = "mayajaal.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["mayajaal*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

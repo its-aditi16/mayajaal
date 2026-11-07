@@ -1,0 +1,88 @@
+# docker compose up --build
+#   App:        http://localhost:8000
+#   Dashboard:  http://localhost:8501
+#   Hindsight:  http://localhost:9999
+x-mayajaal: &mayajaal
+  build: .
+  image: mayajaal:latest
+  volumes:
+    - mayajaal-data:/data
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  hindsight:
+    image: ghcr.io/vectorize-io/hindsight:latest
+    restart: unless-stopped
+    # A hard stop leaves a Postgres lock in /tmp that stops the next start, so keep it in memory.
+    tmpfs:
+      - /tmp
+    stop_grace_period: 60s
+    ports:
+      - "9999:9999"
+      - "127.0.0.1:8888:8888"
+    environment:
+      HINDSIGHT_API_LLM_PROVIDER: ${HINDSIGHT_API_LLM_PROVIDER:-ollama}
+      HINDSIGHT_API_LLM_BASE_URL: ${HINDSIGHT_API_LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_API_LLM_MODEL:-qwen2.5:3b}
+      HINDSIGHT_API_LLM_API_KEY: ${HINDSIGHT_API_LLM_API_KEY:-}
+      # Groq's free tier rejects Hindsight's default of "auto".
+      HINDSIGHT_API_LLM_GROQ_SERVICE_TIER: on_demand
+      # Keeps a reflect inside the free tier's 8,000 tokens a minute.
+      HINDSIGHT_API_REFLECT_MAX_ITERATIONS: "2"
+      HINDSIGHT_API_REFLECT_MAX_CONTEXT_TOKENS: "2000"
+      HINDSIGHT_API_REFLECT_MAX_COMPLETION_TOKENS: "2500"
+      HINDSIGHT_API_RETAIN_MAX_COMPLETION_TOKENS: "4000"
+      HINDSIGHT_API_RETAIN_CHUNK_SIZE: "2000"
+      HINDSIGHT_API_LLM_TIMEOUT: "300"
+      HINDSIGHT_API_REFLECT_LLM_TIMEOUT: "300"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - hindsight-data:/home/hindsight/.pg0
+
+  app:
+    <<: *mayajaal
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      MAYAJAAL_REDIS_URL: redis://redis:6379/0
+    depends_on: [redis]
+
+  worker:
+    <<: *mayajaal
+    restart: unless-stopped
+    command: ["mayajaal", "worker"]
+    # Only the worker gets secrets. The app is what attackers reach, so it must not hold your keys.
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "8100:8100"
+    environment:
+      MAYAJAAL_REDIS_URL: redis://redis:6379/0
+      MAYAJAAL_CONTROL_HOST: 0.0.0.0
+      MAYAJAAL_HINDSIGHT_URL: http://hindsight:8888
+      MAYAJAAL_OLLAMA_URL: http://host.docker.internal:11434
+      # The worker is deliberately not given the Docker socket, which would make it root on the
+      # host. To verify in containers here, use a socket proxy limited to run/rm.
+      MAYAJAAL_SANDBOX_BACKEND: inprocess
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on: [redis, hindsight]
+
+  dashboard:
+    <<: *mayajaal
+    restart: unless-stopped
+    command: ["mayajaal", "dashboard", "--host", "0.0.0.0"]
+    ports:
+      - "8501:8501"
+    environment:
+      MAYAJAAL_PUBLIC_BASE_URL: http://worker:8100
+
+volumes:
+  mayajaal-data:
+  hindsight-data:

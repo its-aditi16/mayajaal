@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: pytest tests -q
+      - name: Full attack story, offline
+        run: mayajaal demo --fresh --no-ai
+        env:
+          MAYAJAAL_DATA_DIR: ${{ runner.temp }}/mayajaal
+          MAYAJAAL_MEMORY_BACKEND: local
+          MAYAJAAL_SANDBOX_BACKEND: inprocess
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t mayajaal:latest .
+      - name: Verification copy starts locked down
+        run: |
+          docker run -d --name copy -p 127.0.0.1:8000:8000 --read-only --tmpfs /sandbox:mode=1777 --tmpfs /tmp \
+            --cap-drop=ALL -e MAYAJAAL_SANDBOX_MODE=1 -e MAYAJAAL_SECRET_KEY=ci -e MAYAJAAL_DATA_DIR=/sandbox mayajaal:latest
+          for i in $(seq 1 30); do curl -fs http://127.0.0.1:8000/healthz && exit 0; sleep 1; done
+          docker logs copy
+          exit 1

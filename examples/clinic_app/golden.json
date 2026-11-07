@@ -1,0 +1,12 @@
+[
+  {"persona": "receptionist", "method": "GET", "path": "/", "expect": 200,
+   "headers": {"user-agent": "Mozilla/5.0 (Windows NT 10.0) Chrome/130.0 Safari/537.36", "accept": "application/json", "accept-language": "en-IN"}},
+  {"persona": "receptionist", "method": "GET", "path": "/doctors", "expect": 200,
+   "headers": {"user-agent": "Mozilla/5.0 (Windows NT 10.0) Chrome/130.0 Safari/537.36", "accept": "application/json", "accept-language": "en-IN"}},
+  {"persona": "receptionist", "method": "GET", "path": "/patients", "query": "ward=A", "expect": 200,
+   "headers": {"user-agent": "Mozilla/5.0 (Windows NT 10.0) Chrome/130.0 Safari/537.36", "accept": "application/json", "accept-language": "en-IN"}},
+  {"persona": "receptionist", "method": "GET", "path": "/patients/101", "expect": 200,
+   "headers": {"user-agent": "Mozilla/5.0 (Windows NT 10.0) Chrome/130.0 Safari/537.36", "accept": "application/json", "accept-language": "en-IN"}},
+  {"persona": "billing-script", "method": "GET", "path": "/patients/export", "query": "limit=10", "expect": 200,
+   "headers": {"user-agent": "python-httpx/0.28.1", "accept": "application/json"}}
+]
