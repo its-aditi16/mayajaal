@@ -459,3 +459,40 @@ def test_ai_is_told_what_normal_traffic_looks_like_without_any_passwords(app, ma
     normal = ai.seen[0]["normal_traffic_must_keep_working"]
     assert "GET /api/customers/export?limit=50" in normal
     assert "demo-only-password" not in str(ai.seen)
+
+
+def test_ai_rule_that_hides_a_trap_is_replaced_and_the_bait_keeps_working(app, make_pipeline, bus):
+    hide = Rule(id="R-hide", kind="technique", title="Block the env file",
+                conditions=[Condition(field="path", op="eq", value="/.env")])
+    pipeline = make_pipeline(ai=RecordingAI(draft=("Block the bait", [hide])))
+    run_attack(app)
+    incident = drive(pipeline, bus, WAITING)
+    assert pipeline.store.get_fix(incident.fix_id).source == "template"
+    pipeline.approve(incident.fix_id, "tester")
+    refresh_rules(app)
+    newcomer = client_for(app, {"user-agent": "curl/8.9.1", "accept": "*/*"}, "203.0.113.77")
+    response = newcomer.get("/.env")
+    assert response.status_code == 200 and "PAYMENTS_API_KEY=" in response.text
+
+
+def test_declined_visitor_who_takes_bait_again_raises_a_new_alert(app, make_pipeline, bus):
+    """Regression from a live console test: after a decline, new trap hits were filed silently."""
+    pipeline = make_pipeline()
+    run_attack(app)
+    first = drive(pipeline, bus, WAITING)
+    pipeline.decline(first.fix_id, "tester")
+    client_for(app, AGENT, "192.0.2.10").get("/internal/admin-console")
+    second = drive(pipeline, bus, WAITING)
+    assert second.id != first.id
+    assert second.status in ("awaiting_approval", "needs_human")
+    assert pipeline.store.get_incident(first.id).status == "declined"
+
+
+def test_blocked_attacker_returning_is_counted_not_reopened(app, make_pipeline, bus):
+    pipeline = make_pipeline()
+    first = block_attacker(app, pipeline, bus)
+    client_for(app, AGENT, "192.0.2.10").get("/.env")
+    for event in bus.consume():
+        pipeline.handle_event(event)
+    assert len(pipeline.store.incidents()) == 1
+    assert pipeline.store.get_incident(first.id).hits_after_block == 1

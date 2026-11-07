@@ -50,6 +50,12 @@ def test_blocking_all_python_clients_is_refused(app, settings, store):
     records = attack_records(app, store)
     report = verifier(settings, store).verify(fix_of(rule(field="user_agent", op="contains", value="python")), records)
     assert not report.passed
+    # Refused twice over: it would hide the bait, and it would break a legitimate script.
+    assert "hide the bait" in check(report, "Rule is safe to run").detail
+    with_trap_open = fix_of(Rule(id="R", kind="technique", title="t", conditions=[
+        Condition(field="user_agent", op="contains", value="python"),
+        Condition(field="path", op="eq", value="/products")]))
+    report = verifier(settings, store).verify(with_trap_open, records)
     assert "sync" in check(report, "Normal users still get through").detail
 
 
@@ -57,7 +63,11 @@ def test_blocking_a_whole_data_page_is_refused(app, settings, store):
     records = attack_records(app, store)
     report = verifier(settings, store).verify(
         fix_of(rule(field="path", op="prefix", value="/api/customers")), records)
-    assert not report.passed and not check(report, "Normal users still get through").passed
+    assert not report.passed
+    # It also covers the fake customer record, so it is refused before even reaching the replay.
+    assert "hide the bait" in check(report, "Rule is safe to run").detail
+    exports = fix_of(rule(field="path", op="eq", value="/api/customers/export"))
+    assert not check(verifier(settings, store).verify(exports, records), "Normal users still get through").passed
 
 
 def test_rule_that_would_hit_recent_real_traffic_is_refused(app, settings, store):
@@ -114,3 +124,27 @@ def test_verification_never_touches_live_data(app, settings, store):
     verifier(settings, store).verify(
         fix_of(rule("fingerprint", field="fingerprint", op="eq", value=records[0].fingerprint)), records)
     assert len(store.activity_since(0)) == before
+
+
+def test_rule_that_blocks_a_trap_for_everyone_is_refused(app, settings, store):
+    """Regression from a live test: approved AI rules blocked /.env for everyone, so the next
+    attacker got a 403 instead of a fake key and the trap stopped working."""
+    records = attack_records(app, store)
+    report = verifier(settings, store).verify(fix_of(rule(field="path", op="eq", value="/.env")), records)
+    assert not report.passed
+    assert "hide the bait" in check(report, "Rule is safe to run").detail
+
+
+def test_blocking_the_attacker_on_a_trap_page_is_still_allowed(app, settings, store):
+    records = attack_records(app, store)
+    attacker_on_trap = Rule(id="R-ok", kind="fingerprint", title="t", conditions=[
+        Condition(field="fingerprint", op="eq", value=records[0].fingerprint),
+        Condition(field="path", op="eq", value="/.env")])
+    narrow = rule("fingerprint", field="fingerprint", op="eq", value=records[0].fingerprint)
+    assert verifier(settings, store).verify(fix_of(narrow, attacker_on_trap), records).passed
+
+
+def test_built_in_traps_are_protected_even_if_this_attacker_never_touched_them(app, settings, store):
+    from mayajaal.prove import hides_bait
+
+    assert hides_bait([rule(field="path", op="prefix", value="/internal/")], [])

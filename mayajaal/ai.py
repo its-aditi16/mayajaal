@@ -35,6 +35,8 @@ Return JSON only, with this exact shape:
 Conditions in a rule are ANDed. Use the exact fingerprint and token hash values from the evidence, with op "eq".
 Add a technique rule only for a request pattern normal users would never send. Keep rules narrow.
 normal_traffic_must_keep_working lists real requests: no rule may match any of them.
+Requests marked bait_taken are traps. Never block a trap path for everyone: it must stay open to catch the next
+attacker. Block the attacker instead, by its fingerprint or token hash.
 Your rules will be tested against normal user traffic and rejected if they block anyone legitimate."""
 
 

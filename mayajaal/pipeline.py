@@ -87,6 +87,10 @@ class Pipeline:
         keys = set(actor_keys(records))
         with self._lock:
             for existing in reversed(self.store.incidents()):
+                # A decision that ended without a block is not a free pass: if the same visitor takes
+                # bait again, a person is asked again. Found when a live console test was filed silently.
+                if existing.status in ("declined", "needs_human", "error"):
+                    continue
                 if keys & set(existing.actor_keys):
                     if existing.status == "blocked":
                         existing.hits_after_block += 1

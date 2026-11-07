@@ -21,6 +21,9 @@ from .models import Activity, Check, Fix, Rule, VerificationReport
 from .rewind import record_keys
 from .rules import lint, rule_matches
 from .store import Store
+from .traps import registry
+
+IDENTITY_FIELDS = {"fingerprint", "token_hash", "session_hash"}
 
 log = logging.getLogger("mayajaal.prove")
 
@@ -228,6 +231,8 @@ class Verifier:
         checks: list[Check] = []
 
         problems = [f"{r.title}: {p}" for r in fix.rules for p in lint(r)]
+        problems += [f"{r.title}: would hide the bait from the next attacker; block the attacker, not the trap"
+                     for r in hides_bait(fix.rules, attack)]
         checks.append(Check(name="Rule is safe to run", passed=not problems and bool(fix.rules),
                             detail="; ".join(problems) or (f"{len(fix.rules)} rule(s) passed static checks"
                                                            if fix.rules else "No rules proposed")))
@@ -312,3 +317,13 @@ def record_golden(settings: Settings, store: Store, days: float = 7.0) -> list[d
         golden.append({"persona": f"visitor-{record.fingerprint[:8]}", "method": "GET", "path": record.path,
                        "query": record.query, "headers": record.headers, "expect": record.status})
     return golden
+
+
+def hides_bait(rules: list[Rule], attack: list[Activity]) -> list[Rule]:
+    """Rules that would block a trap for everyone. A trap must keep serving fake keys so it can
+    catch the next attacker, so only rules tied to this attacker's identity may cover it."""
+    bait = [r.rule_attrs() for r in attack if r.trap_id and not r.path.startswith("mcp://")]
+    bait += [{"path": path, "method": "GET", "query": ""} for path in registry.BY_PATH]
+    return [rule for rule in rules
+            if not any(c.field in IDENTITY_FIELDS for c in rule.conditions)
+            and any(rule_matches(rule, attrs) for attrs in bait)]
